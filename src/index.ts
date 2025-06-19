@@ -204,7 +204,7 @@ export class YtDlp {
 
       if (opts?.signal) {
         opts.signal.onabort = () => {
-          ytDlpProcess.kill(0);
+          ytDlpProcess.kill('SIGTERM');
           resolve('abortted');
         };
       }
