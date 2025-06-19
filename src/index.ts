@@ -203,7 +203,7 @@ export class YtDlp {
       }
 
       if (opts?.signal) {
-        opts.signal.onabort = (e) => {
+        opts.signal.onabort = () => {
           ytDlpProcess.kill(0);
           resolve('abortted');
         };
