@@ -1,33 +1,33 @@
+import { Blob } from 'buffer';
 import { spawn, spawnSync } from 'child_process';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as os from 'os';
-import { Blob } from 'buffer';
+import * as path from 'path';
+import { PassThrough } from 'stream';
 import {
   ArgsOptions,
   FileMetadata,
+  FormatKeyWord,
+  FormatOptions,
   GetFileOptions,
+  InfoOptions,
   InfoType,
   PipeResponse,
   PlaylistInfo,
-  FormatKeyWord,
-  FormatOptions,
   VideoInfo,
   VideoProgress,
   VideoThumbnail,
   YtDlpOptions,
-  InfoOptions,
 } from './types';
 import { createArgs } from './utils/args';
-import { extractThumbnails } from './utils/thumbnails';
+import { downloadFFmpeg, findFFmpegBinary } from './utils/ffmpeg';
 import {
   getContentType,
   getFileExtension,
   parseFormatOptions,
 } from './utils/format';
 import { PROGRESS_STRING, stringToProgress } from './utils/progress';
-import { PassThrough } from 'stream';
-import { downloadFFmpeg, findFFmpegBinary } from './utils/ffmpeg';
+import { extractThumbnails } from './utils/thumbnails';
 
 export const BIN_DIR = path.join(__dirname, '..', 'bin');
 
@@ -48,7 +48,7 @@ export class YtDlp {
 
     if (!fs.existsSync(this.binaryPath))
       throw new Error('yt-dlp binary not found');
-    fs.chmodSync(this.binaryPath, 0o755);
+    // fs.chmodSync(this.binaryPath, 0o755);
 
     if (this.ffmpegPath && !fs.existsSync(this.ffmpegPath)) {
       throw new Error('ffmpeg binary not found');
@@ -177,7 +177,8 @@ export class YtDlp {
   private async _executeAsync(
     args: string[],
     onData?: (d: string) => void,
-    passThrough?: PassThrough
+    passThrough?: PassThrough,
+    opts?: { signal?: AbortSignal }
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       const ytDlpProcess = spawn(this.binaryPath, args);
@@ -199,6 +200,13 @@ export class YtDlp {
 
       if (passThrough) {
         ytDlpProcess.stdout.pipe(passThrough);
+      }
+
+      if (opts?.signal) {
+        opts.signal.onabort = (e) => {
+          ytDlpProcess.kill(0);
+          resolve('abortted');
+        };
       }
 
       ytDlpProcess.on('close', (code) => {
@@ -252,7 +260,7 @@ export class YtDlp {
   // done
   public async downloadAsync<F extends FormatKeyWord>(
     url: string,
-    options?: FormatOptions<F>
+    options?: FormatOptions<F> & { signal?: AbortSignal }
   ): Promise<string> {
     const { format, onProgress, ...opt } = options || {};
     const args = this.buildArgs(
@@ -262,12 +270,17 @@ export class YtDlp {
       parseFormatOptions(format)
     );
 
-    return this._executeAsync(args, (data) => {
-      const progress = stringToProgress(data);
-      if (progress) {
-        onProgress?.(progress);
-      }
-    });
+    return this._executeAsync(
+      args,
+      (data) => {
+        const progress = stringToProgress(data);
+        if (progress) {
+          onProgress?.(progress);
+        }
+      },
+      undefined,
+      { signal: opt.signal }
+    );
   }
 
   // done
@@ -403,9 +416,9 @@ export class YtDlp {
 export type {
   ArgsOptions,
   FormatOptions,
+  PlaylistInfo,
   VideoInfo,
   VideoProgress,
   VideoThumbnail,
   YtDlpOptions,
-  PlaylistInfo,
 };
