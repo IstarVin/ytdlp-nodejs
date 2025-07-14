@@ -25,7 +25,7 @@
     "lint": "eslint",
     "format": "prettier --ignore-path .gitignore --write \"./src/**/*.+(js|ts|json)\"",
     "download": "node ./dist/download.js",
-    "postinstall": "node -e \"process.env.INIT_CWD !== process.cwd() && require('child_process').execSync('npm run build && npm run download', { stdio: 'inherit' });\"",
+    "postinstall": "node -e \"process.env.INIT_CWD !== process.cwd() && require('child_process').execSync('npm i && npm run build && npm run download', { stdio: 'inherit' });\"",
     "prepare": "husky"
   },
   "keywords": [
